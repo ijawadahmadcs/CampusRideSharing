@@ -67,6 +67,16 @@ public class Ride {
         if (status.equals("Ongoing")) {
             status = "Completed";
             driver.addEarnings(fare);
+
+            // Use transactional DAO method to persist both ride status and driver earnings
+            try {
+                RideDAO rideDAO = new RideDAO();
+                boolean ok = rideDAO.completeRideTransaction(this.rideId, driver.getUserId(), this.fare);
+                if (!ok) System.err.println("Warning: failed to complete transaction for ride completion.");
+            } catch (Exception e) {
+                System.err.println("Error persisting ride completion: " + e.getMessage());
+            }
+
             System.out.println("Ride completed! Driver earned: PKR " + String.format("%.2f", fare));
         } else {
             System.out.println("Cannot complete ride. Current status: " + status);

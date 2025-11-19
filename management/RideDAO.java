@@ -123,4 +123,45 @@ public class RideDAO {
         }
         return rides;
     }
+
+    // Complete ride and update driver earnings in a single transaction
+    public boolean completeRideTransaction(int rideId, int driverId, double fare) {
+        String updRide = "UPDATE Rides SET status = 'Completed' WHERE ride_id = ?";
+        String updDriver = "UPDATE Drivers SET total_earnings = total_earnings + ? WHERE driver_id = ?";
+
+        Connection conn = DatabaseConfig.getConnection();
+        if (conn == null) {
+            System.err.println("Database connection is NULL!");
+            return false;
+        }
+
+        boolean previousAutoCommit = true;
+        try {
+            previousAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement pRide = conn.prepareStatement(updRide)) {
+                pRide.setInt(1, rideId);
+                int r1 = pRide.executeUpdate();
+                if (r1 == 0) throw new SQLException("No ride updated for ride_id=" + rideId);
+            }
+
+            try (PreparedStatement pDrv = conn.prepareStatement(updDriver)) {
+                pDrv.setDouble(1, fare);
+                pDrv.setInt(2, driverId);
+                int r2 = pDrv.executeUpdate();
+                if (r2 == 0) throw new SQLException("No driver updated for driver_id=" + driverId);
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (SQLException e) {
+            System.err.println("Transaction failed completing ride: " + e.getMessage());
+            try { conn.rollback(); } catch (SQLException ex) { System.err.println("Rollback failed: " + ex.getMessage()); }
+            return false;
+        } finally {
+            try { conn.setAutoCommit(previousAutoCommit); } catch (SQLException ignored) {}
+        }
+    }
 }

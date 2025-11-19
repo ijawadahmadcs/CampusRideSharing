@@ -54,20 +54,19 @@ public class RideSharingApp {
         System.out.print("Choose: ");
 
         int choice = getIntInput();
-        scanner.nextLine(); // clear buffer
 
         System.out.print("Enter Name: ");
-        String name = scanner.nextLine().trim();
+        String name = getNonEmptyInput("Name");
 
         System.out.print("Enter Email: ");
-        String email = scanner.nextLine().trim();
+        String email = getNonEmptyInput("Email");
 
         System.out.print("Enter Password: ");
-        String password = scanner.nextLine().trim();
+        String password = getNonEmptyInput("Password");
 
         if (choice == 1) {
             System.out.print("Enter License Number: ");
-            String license = scanner.nextLine().trim();
+            String license = getNonEmptyInput("License Number");
             userDAO.registerDriver(name, email, password, license);
         } else if (choice == 2) {
             userDAO.registerRider(name, email, password);
@@ -80,9 +79,9 @@ public class RideSharingApp {
     private static void driverLogin() {
         System.out.println("\n--- DRIVER LOGIN ---");
         System.out.print("Email: ");
-        String email = scanner.nextLine().trim();
+        String email = getNonEmptyInput("Email");
         System.out.print("Password: ");
-        String password = scanner.nextLine().trim();
+        String password = getNonEmptyInput("Password");
 
         Driver driver = userDAO.loginDriver(email, password);
 
@@ -135,13 +134,12 @@ public class RideSharingApp {
     private static void addDriverShift(Driver driver) {
         System.out.println("\n--- ADD SHIFT ---");
         try {
-            scanner.nextLine(); // clear buffer
             System.out.print("Shift Date (YYYY-MM-DD): ");
-            String dateStr = scanner.nextLine().trim();
+            String dateStr = getNonEmptyInput("Shift Date");
             System.out.print("Start Time (HH:MM:SS): ");
-            String startStr = scanner.nextLine().trim();
+            String startStr = getNonEmptyInput("Start Time");
             System.out.print("End Time (HH:MM:SS): ");
-            String endStr = scanner.nextLine().trim();
+            String endStr = getNonEmptyInput("End Time");
 
             java.sql.Date date = java.sql.Date.valueOf(dateStr);
             java.sql.Time start = java.sql.Time.valueOf(startStr);
@@ -150,7 +148,7 @@ public class RideSharingApp {
             boolean ok = shiftDAO.addShift(driver.getUserId(), date, start, end);
             System.out.println(ok ? "Shift added." : "Failed to add shift.");
         } catch (Exception e) {
-            System.out.println("Invalid date/time format.");
+            System.out.println("Invalid date/time format: " + e.getMessage());
         }
     }
 
@@ -158,9 +156,9 @@ public class RideSharingApp {
     private static void riderLogin() {
         System.out.println("\n--- RIDER LOGIN ---");
         System.out.print("Email: ");
-        String email = scanner.nextLine().trim();
+        String email = getNonEmptyInput("Email");
         System.out.print("Password: ");
-        String password = scanner.nextLine().trim();
+        String password = getNonEmptyInput("Password");
 
         Rider rider = userDAO.loginRider(email, password);
 
@@ -203,17 +201,15 @@ public class RideSharingApp {
 
     // ===================== VEHICLES =====================
     private static void addOrUpdateVehicle(Driver driver) {
-        scanner.nextLine(); // clear buffer
         System.out.println("\n--- ADD/UPDATE VEHICLE ---");
         System.out.print("Model: ");
-        String model = scanner.nextLine().trim();
+        String model = getNonEmptyInput("Model");
         System.out.print("Plate Number: ");
-        String plateNumber = scanner.nextLine().trim();
+        String plateNumber = getNonEmptyInput("Plate Number");
         System.out.print("Capacity: ");
         int capacity = getIntInput();
-        scanner.nextLine(); // clear buffer
         System.out.print("Color: ");
-        String color = scanner.nextLine().trim();
+        String color = getNonEmptyInput("Color");
 
         int vehicleId = vehicleDAO.addVehicle(driver.getUserId(), model, plateNumber, capacity, color);
         if (vehicleId > 0) {
@@ -226,9 +222,13 @@ public class RideSharingApp {
     private static void addMoneyToWallet(Rider rider) {
         System.out.print("Enter amount to add (PKR): ");
         double amount = getDoubleInput();
-        rider.addBalance(amount);
-        userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
-        System.out.println("✓ Added successfully. New balance: PKR " + rider.getBalance());
+        if (amount > 0) {
+            rider.addBalance(amount);
+            userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
+            System.out.println("✓ Added successfully. New balance: PKR " + rider.getBalance());
+        } else {
+            System.out.println("Invalid amount!");
+        }
     }
 
     // ===================== BOOK RIDE =====================
@@ -258,7 +258,6 @@ public class RideSharingApp {
 
         System.out.print("\nSelect Route (1-" + routes.size() + "): ");
         int rIndex = getIntInput() - 1;
-        scanner.nextLine(); // clear buffer before reading strings
         if (rIndex < 0 || rIndex >= routes.size()) {
             System.out.println("Invalid route!");
             return;
@@ -280,13 +279,12 @@ public class RideSharingApp {
             System.out.println("3. Wallet");
             System.out.print("Choose: ");
             int pm = getIntInput();
-            scanner.nextLine();
             switch (pm) {
                 case 1 -> method = "Cash";
                 case 2 -> {
                     method = "Card";
                     System.out.print("Enter Card Number (demo): ");
-                    cardNumber = scanner.nextLine().trim();
+                    cardNumber = getNonEmptyInput("Card Number");
                 }
                 case 3 -> {
                     method = "Wallet";
@@ -295,13 +293,17 @@ public class RideSharingApp {
                     } else {
                         System.out.println("Insufficient wallet balance. Add money or choose another method.");
                         System.out.print("Add money now? (y/n): ");
-                        String add = scanner.nextLine().trim();
+                        String add = getNonEmptyInput("Add money choice");
                         if (add.equalsIgnoreCase("y")) {
                             System.out.print("Enter amount to add (PKR): ");
                             double amt = getDoubleInput();
-                            rider.addBalance(amt);
-                            userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
-                            if (rider.getBalance() >= fare) walletOk = true;
+                            if (amt > 0) {
+                                rider.addBalance(amt);
+                                userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
+                                if (rider.getBalance() >= fare) walletOk = true;
+                            } else {
+                                System.out.println("Invalid amount!");
+                            }
                         }
                         if (!walletOk) method = null; // re-prompt
                     }
@@ -311,7 +313,7 @@ public class RideSharingApp {
         }
 
         System.out.print("\nConfirm booking and pay with " + method + "? (y/n): ");
-        String conf2 = scanner.nextLine().trim();
+        String conf2 = getNonEmptyInput("Confirmation");
         if (!conf2.equalsIgnoreCase("y")) {
             System.out.println("Booking cancelled.");
             return;
@@ -349,10 +351,10 @@ public class RideSharingApp {
 
         // Offer to add assistants (companions)
         System.out.print("Add an assistant/companion? (y/n): ");
-        String ans = scanner.nextLine().trim();
+        String ans = getNonEmptyInput("Assistant choice");
         if (ans.equalsIgnoreCase("y")) {
             System.out.print("Assistant name: ");
-            String an = scanner.nextLine().trim();
+            String an = getNonEmptyInput("Assistant name");
             boolean added = assistantDAO.addAssistant(rideId, rider.getUserId(), an);
             System.out.println(added ? "Assistant added." : "Failed to add assistant.");
         }
@@ -399,14 +401,12 @@ public class RideSharingApp {
 
         System.out.print("(Optional) Enter Ride ID to link payment (or 0): ");
         int rideId = getIntInput();
-        scanner.nextLine(); // clear buffer
 
         System.out.println("\n1. Cash");
         System.out.println("2. Card");
         System.out.println("3. Wallet");
         System.out.print("Choose: ");
         int choice = getIntInput();
-        scanner.nextLine(); // clear buffer
 
         Payment payment;
         boolean success = false;
@@ -419,7 +419,7 @@ public class RideSharingApp {
             }
             case 2 -> {
                 System.out.print("Card Number: ");
-                String card = scanner.nextLine().trim();
+                String card = getNonEmptyInput("Card Number");
                 payment = new CardPayment(0, rideId, amount, card);
                 success = payment.processPayment(amount);
                 method = "Card";
@@ -449,38 +449,60 @@ public class RideSharingApp {
         viewRiderRides(rider);
         System.out.print("Enter Ride ID to submit feedback for: ");
         int rideId = getIntInput();
-        scanner.nextLine(); // clear buffer
         if (rideId <= 0) {
             System.out.println("Invalid ride id.");
             return;
         }
         System.out.print("Rating (1-5): ");
         int rating = getIntInput();
-        scanner.nextLine(); // clear buffer
+        if (rating < 1 || rating > 5) {
+            System.out.println("Rating must be between 1 and 5!");
+            return;
+        }
         System.out.print("Comments: ");
-        String comments = scanner.nextLine().trim();
+        String comments = getNonEmptyInput("Comments");
 
         int fbId = feedbackDAO.createFeedback(rideId, rating, comments);
         if (fbId > 0) System.out.println("Feedback submitted. ID: " + fbId);
         else System.out.println("Failed to submit feedback (maybe one feedback per ride only).");
     }
 
-    // ===================== UTILITY =====================
+    // ===================== UTILITY METHODS =====================
     private static int getIntInput() {
-        try {
-            return Integer.parseInt(scanner.nextLine().trim());
-        } catch (Exception e) {
-            System.out.println("Invalid number!");
-            return -1;
+        while (true) {
+            try {
+                String input = scanner.nextLine().trim();
+                if (!input.isEmpty()) {
+                    return Integer.parseInt(input);
+                }
+                System.out.print("Please enter a valid number: ");
+            } catch (Exception e) {
+                System.out.print("Invalid number! Please enter a valid integer: ");
+            }
         }
     }
 
     private static double getDoubleInput() {
-        try {
-            return Double.parseDouble(scanner.nextLine().trim());
-        } catch (Exception e) {
-            System.out.println("Invalid number!");
-            return 0;
+        while (true) {
+            try {
+                String input = scanner.nextLine().trim();
+                if (!input.isEmpty()) {
+                    return Double.parseDouble(input);
+                }
+                System.out.print("Please enter a valid number: ");
+            } catch (Exception e) {
+                System.out.print("Invalid number! Please enter a valid number: ");
+            }
+        }
+    }
+
+    private static String getNonEmptyInput(String fieldName) {
+        while (true) {
+            String input = scanner.nextLine().trim();
+            if (!input.isEmpty()) {
+                return input;
+            }
+            System.out.print(fieldName + " cannot be empty. Please enter " + fieldName.toLowerCase() + ": ");
         }
     }
 }
