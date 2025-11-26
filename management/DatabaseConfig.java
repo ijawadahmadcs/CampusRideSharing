@@ -4,7 +4,7 @@ import java.sql.*;
 public class DatabaseConfig {
     private static final String URL = "jdbc:mysql://localhost:3306/ridesharedb";
     private static final String USER = "root";
-    private static final String PASSWORD = "Jawadahmad@3612";
+    private static final String PASSWORD = "Pakistan@2025";
     
     private static Connection connection = null;
     
