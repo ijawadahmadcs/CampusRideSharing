@@ -1,0 +1,11 @@
+# Ignore local environment file with secrets
+.env
+
+# Java build artifacts
+.class
+bin/
+out/
+
+# IDE folders
+.idea/
+.vscode/
