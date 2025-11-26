@@ -1,17 +1,7 @@
-/*
- Enhanced RideSharingGUI.java (Booking converted into a 4-step wizard)
- - Step 1: Select Driver
- - Step 2: Select Route & Fare (fare preview)
- - Step 3: Payment (Cash/Card/Wallet) + Wallet top-up
- - Step 4: Assistant & Review -> Confirm
- - Uses DAOs: UserDAO, RideDAO, RouteDAO, VehicleDAO, PaymentDAO, RideAssistantDAO, DriverShiftDAO, FeedbackDAO
- - Keep the same color theme and improved visual spacing for the wizard
- Note: This file expects the DAO and model classes (UserDAO, RideDAO, RouteDAO, VehicleDAO,
- PaymentDAO, FeedbackDAO, DriverShiftDAO, RideAssistantDAO, Driver, Rider, Route, Vehicle, etc.)
- to be available in the classpath exactly as used by the CLI.
-*/
 import java.awt.*;
 import java.awt.event.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
@@ -316,6 +306,45 @@ public class RideSharingGUI extends JFrame {
         return button;
     }
 
+    // Large rounded primary-style button (used in dashboards to match landing)
+    private JButton createLargePrimaryButton(String text, Color color) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                GradientPaint gp = new GradientPaint(0, 0, color, 0, getHeight(), color.darker());
+                g2.setPaint(gp);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(FONT_BUTTON);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setOpaque(false);
+        btn.setPreferredSize(new Dimension(340, 48));
+        btn.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        return btn;
+    }
+
+    private JPanel createStatCard(String title, String value, Color accent) {
+        JPanel card = new RoundedPanel(12, CARD_COLOR);
+        card.setLayout(new BorderLayout(8, 8));
+        card.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
+        JLabel t = new JLabel(title, SwingConstants.LEFT);
+        t.setFont(FONT_SUBHEADER);
+        t.setForeground(accent);
+        JLabel v = new JLabel(value, SwingConstants.LEFT);
+        v.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        v.setForeground(TEXT_PRIMARY);
+        card.add(t, BorderLayout.NORTH);
+        card.add(v, BorderLayout.CENTER);
+        return card;
+    }
+
     // ----------------- Registration & Login (unchanged except small improvements) -----------------
 
     private void showRegistrationForm(String userType) {
@@ -386,6 +415,7 @@ public class RideSharingGUI extends JFrame {
         dialog.setVisible(true);
     }
 
+    // IMPORTANT: login dialog is intentionally left unchanged (your preferred design)
     private void showLoginForm(String userType) {
         JDialog dialog = createCenteredDialog("Login as " + userType, 400, 380);
         JPanel content = new JPanel(new BorderLayout());
@@ -489,7 +519,7 @@ public class RideSharingGUI extends JFrame {
         return d;
     }
 
-    // ----------------- Dashboards (Driver & Rider) -----------------
+    // ----------------- Dashboards (Driver & Rider) - Enhanced UI to match landing page -----------------
 
     private void showDriverDashboard(Driver driver) {
         if (namedCards.containsKey("DRIVER_DASH")) {
@@ -505,134 +535,159 @@ public class RideSharingGUI extends JFrame {
     private JPanel createDriverDashboardPanel(Driver driver) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(BACKGROUND_COLOR);
-        panel.add(createDriverHeader(driver), BorderLayout.NORTH);
 
-        JPanel main = new JPanel(new BorderLayout());
-        main.setBackground(BACKGROUND_COLOR);
-        main.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
+        // Top: Large gradient header (similar to landing)
+        JPanel header = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                GradientPaint gp = new GradientPaint(0, 0, PRIMARY_DARK, getWidth(), 0, PRIMARY_LIGHT);
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+            }
+        };
+        header.setPreferredSize(new Dimension(0, 110));
+        header.setLayout(new BorderLayout());
+        header.setBorder(BorderFactory.createEmptyBorder(14, 20, 14, 20));
 
-        JPanel nav = new JPanel();
-        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBackground(BACKGROUND_COLOR);
-        nav.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
+        JLabel title = new JLabel("Driver Dashboard");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(Color.WHITE);
 
-        CardLayout inner = new CardLayout();
-        JPanel cards = new JPanel(inner);
-        cards.setBackground(BACKGROUND_COLOR);
+        JLabel subtitle = new JLabel("Welcome, " + driver.getName());
+        subtitle.setFont(FONT_BODY);
+        subtitle.setForeground(new Color(255,255,255,200));
 
-        // Overview
-        JPanel overview = new JPanel(new BorderLayout()); overview.setBackground(CARD_COLOR);
-        JTextArea ov = new JTextArea(); ov.setEditable(false); ov.setOpaque(false);
-        String vehicleInfo = "No vehicle";
-        try { if (driver.getVehicle() != null) vehicleInfo = driver.getVehicle().toString(); } catch (Exception ignored) {}
-        ov.setText("Name: " + driver.getName() + "\nEarnings: PKR " + String.format("%.2f", driver.getTotalEarnings()) + "\nVehicle: " + vehicleInfo);
-        overview.add(ov, BorderLayout.CENTER);
+        JPanel text = new JPanel(new GridLayout(2,1));
+        text.setOpaque(false);
+        text.add(title); text.add(subtitle);
+        header.add(text, BorderLayout.WEST);
 
-        // Rides
-        JPanel rides = new JPanel(new BorderLayout()); rides.setBackground(CARD_COLOR);
-        DefaultListModel<String> ridesModel = new DefaultListModel<>();
-        JList<String> ridesList = new JList<>(ridesModel);
-        ridesList.setFont(FONT_BODY);
-        JScrollPane ridesScroll = new JScrollPane(ridesList);
-        JPanel ridesBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT)); ridesBtns.setBackground(CARD_COLOR);
-        JButton refreshRides = createModernButton("Refresh", PRIMARY_LIGHT);
-        JButton startBtn = createModernButton("Start Ride", PRIMARY_COLOR);
-        JButton completeBtn = createModernButton("Complete Ride", PRIMARY_COLOR);
-        ridesBtns.add(refreshRides); ridesBtns.add(startBtn); ridesBtns.add(completeBtn);
-        rides.add(ridesScroll, BorderLayout.CENTER); rides.add(ridesBtns, BorderLayout.SOUTH);
+        // Center: stats row + two-column action area like landing boxes
+        JPanel center = new JPanel(new BorderLayout());
+        center.setBackground(BACKGROUND_COLOR);
+        center.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
-        refreshRides.addActionListener(e -> {
-            ridesModel.clear();
-            var list = rideDAO.getRidesByDriver(driver.getUserId());
-            if (list == null || list.isEmpty()) ridesModel.addElement("No rides yet");
-            else list.forEach(ridesModel::addElement);
-        });
-        refreshRides.doClick();
+        // Stats row
+        JPanel statsRow = new JPanel(new GridLayout(1, 3, 18, 0));
+        statsRow.setOpaque(false);
+        int ridesCompleted = 0;
+        try {
+            List<String> rides = rideDAO.getRidesByDriver(driver.getUserId());
+            ridesCompleted = rides == null ? 0 : rides.size();
+        } catch (Exception ignored) {}
+        String earnings = String.format("PKR %.2f", driver.getTotalEarnings());
+        statsRow.add(createStatCard("Earnings", earnings, PRIMARY_COLOR));
+        statsRow.add(createStatCard("Rides Completed", String.valueOf(ridesCompleted), PRIMARY_LIGHT));
+        statsRow.add(createStatCard("Vehicle", driver.getVehicle() != null ? driver.getVehicle().getModel() : "No vehicle", PRIMARY_DARK));
 
-        startBtn.addActionListener(e -> {
-            String sel = ridesList.getSelectedValue();
-            if (sel == null || sel.startsWith("No ")) { showMessage("Error","Select a ride.", PRIMARY_DARK); return; }
-            int id = extractDriverIdFromListItem(sel);
-            boolean ok = rideDAO.startRideTransaction(id, driver.getUserId());
-            showMessage(ok?"Success":"Error", ok?"Ride marked In Progress":"Failed to start ride", ok?PRIMARY_COLOR:PRIMARY_DARK);
-            refreshRides.doClick();
-        });
+        center.add(statsRow, BorderLayout.NORTH);
 
-        completeBtn.addActionListener(e -> {
-            String sel = ridesList.getSelectedValue();
-            if (sel == null || sel.startsWith("No ")) { showMessage("Error","Select a ride.", PRIMARY_DARK); return; }
-            int id = extractDriverIdFromListItem(sel);
-            double fare = rideDAO.getFareByRideId(id);
-            if (fare < 0) { showMessage("Error","Could not determine fare.", PRIMARY_DARK); return; }
-            boolean ok = rideDAO.completeRideTransaction(id, driver.getUserId(), fare);
-            if (ok) { try { driver.addEarnings(fare); } catch (Exception ignored){} }
-            showMessage(ok?"Success":"Error", ok?"Ride completed":"Failed to complete ride", ok?PRIMARY_COLOR:PRIMARY_DARK);
-            refreshRides.doClick();
-        });
+        // Action area (two columns)
+        JPanel actions = new JPanel(new GridBagLayout());
+        actions.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(18, 18, 18, 18);
+        gbc.fill = GridBagConstraints.BOTH;
 
-        // Vehicle card
-        JPanel vehicleCard = new JPanel(new BorderLayout()); vehicleCard.setBackground(CARD_COLOR);
-        JTextArea vehicleArea = new JTextArea(); vehicleArea.setEditable(false); vehicleArea.setOpaque(false);
-        vehicleArea.setText(vehicleInfo);
-        JPanel vehicleBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT)); vehicleBtns.setBackground(CARD_COLOR);
-        JButton manageVehicle = createModernButton("Manage Vehicle", PRIMARY_LIGHT);
-        vehicleBtns.add(manageVehicle);
-        vehicleCard.add(new JScrollPane(vehicleArea), BorderLayout.CENTER); vehicleCard.add(vehicleBtns, BorderLayout.SOUTH);
-        manageVehicle.addActionListener(e -> addOrUpdateVehicle(driver));
+        // Left: quick action boxes (cards)
+        JPanel leftCol = new JPanel();
+        leftCol.setBackground(BACKGROUND_COLOR);
+        leftCol.setLayout(new BoxLayout(leftCol, BoxLayout.Y_AXIS));
 
-        // Shifts card
-        JPanel shiftsCard = new JPanel(new BorderLayout()); shiftsCard.setBackground(CARD_COLOR);
-        JTextArea shiftsArea = new JTextArea(); shiftsArea.setEditable(false);
-        shiftsArea.setFont(FONT_BODY);
-        JPanel shiftsBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT)); shiftsBtns.setBackground(CARD_COLOR);
-        JButton refreshShifts = createModernButton("Refresh", PRIMARY_LIGHT);
-        JButton addShiftBtn = createModernButton("Add Shift", PRIMARY_COLOR);
-        shiftsBtns.add(refreshShifts); shiftsBtns.add(addShiftBtn);
-        shiftsCard.add(new JScrollPane(shiftsArea), BorderLayout.CENTER); shiftsCard.add(shiftsBtns, BorderLayout.SOUTH);
+        JPanel quickCard = new RoundedPanel(12, CARD_COLOR);
+        quickCard.setLayout(new GridBagLayout());
+        quickCard.setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+        GridBagConstraints q = new GridBagConstraints();
+        q.insets = new Insets(10,10,10,10);
+        q.gridx = 0; q.gridy = 0; q.fill = GridBagConstraints.HORIZONTAL;
 
-        refreshShifts.addActionListener(e -> {
-            var s = shiftDAO.getShiftsByDriver(driver.getUserId());
-            if (s == null || s.isEmpty()) shiftsArea.setText("No shifts set.");
-            else {
-                StringBuilder sb = new StringBuilder();
-                for (Object o : s) sb.append(o.toString()).append("\n");
-                shiftsArea.setText(sb.toString());
+        JLabel quickTitle = new JLabel("Quick Actions");
+        quickTitle.setFont(FONT_SUBHEADER);
+        quickTitle.setForeground(TEXT_PRIMARY);
+        q.gridwidth = 2; quickCard.add(quickTitle, q);
+
+        q.gridy++; q.gridwidth = 1;
+        JButton startBtn = createLargePrimaryButton("Start Ride (Prompt)", PRIMARY_COLOR);
+        startBtn.addActionListener(e -> startRideAction(driver));
+        quickCard.add(startBtn, q);
+
+        q.gridx = 1;
+        JButton completeBtn = createLargePrimaryButton("Complete Ride (Prompt)", PRIMARY_LIGHT);
+        completeBtn.addActionListener(e -> completeRideAction(driver));
+        quickCard.add(completeBtn, q);
+
+        q.gridx = 0; q.gridy++;
+        q.gridwidth = 1;
+        JButton shiftsBtn = createLargePrimaryButton("View Shifts", PRIMARY_DARK);
+        shiftsBtn.addActionListener(e -> viewDriverShifts(driver));
+        quickCard.add(shiftsBtn, q);
+
+        q.gridx = 1;
+        JButton addShiftQuick = createLargePrimaryButton("Add Shift", PRIMARY_LIGHT);
+        addShiftQuick.addActionListener(e -> addDriverShift(driver));
+        quickCard.add(addShiftQuick, q);
+
+        leftCol.add(quickCard);
+
+        // Right: profile & vehicle card
+        JPanel rightCol = new JPanel();
+        rightCol.setBackground(BACKGROUND_COLOR);
+        rightCol.setLayout(new BoxLayout(rightCol, BoxLayout.Y_AXIS));
+
+        JPanel profileCard = new RoundedPanel(12, CARD_COLOR);
+        profileCard.setLayout(new BorderLayout(8,8));
+        profileCard.setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+        JLabel pfTitle = new JLabel("Profile");
+        pfTitle.setFont(FONT_SUBHEADER);
+        pfTitle.setForeground(TEXT_PRIMARY);
+        profileCard.add(pfTitle, BorderLayout.NORTH);
+        JTextArea profileArea = new JTextArea();
+        profileArea.setEditable(false);
+        profileArea.setOpaque(false);
+        profileArea.setText("Name: " + driver.getName() + "\nEmail: " + driver.getEmail() + "\nLicense: " + driver.getLicenseNumber());
+        profileArea.setFont(FONT_BODY);
+        profileCard.add(profileArea, BorderLayout.CENTER);
+        JPanel profBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT)); profBtns.setOpaque(false);
+        JButton manageVeh = createModernButton("Manage Vehicle", PRIMARY_LIGHT);
+        manageVeh.addActionListener(e -> addOrUpdateVehicle(driver));
+        profBtns.add(manageVeh);
+        profileCard.add(profBtns, BorderLayout.SOUTH);
+
+        rightCol.add(profileCard);
+
+        // Layout placements
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.6; actions.add(leftCol, gbc);
+        gbc.gridx = 1; gbc.weightx = 0.4; actions.add(rightCol, gbc);
+
+        center.add(actions, BorderLayout.CENTER);
+
+        panel.add(header, BorderLayout.NORTH);
+        panel.add(center, BorderLayout.CENTER);
+
+        // Footer area with logout/delete buttons
+        JPanel footerArea = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footerArea.setBackground(BACKGROUND_COLOR);
+        JButton delete = createModernButton("Delete Profile", new Color(0xAA,0x11,0x11));
+        delete.addActionListener(ev -> {
+            int res = JOptionPane.showConfirmDialog(this, "Delete your profile and all related data? This cannot be undone.", "Confirm Delete", JOptionPane.YES_NO_OPTION);
+            if (res == JOptionPane.YES_OPTION) {
+                boolean ok = userDAO.deleteUser(driver.getUserId());
+                if (ok) {
+                    showMessage("Deleted", "Profile deleted.", PRIMARY_COLOR);
+                    showWelcomeScreen();
+                } else showMessage("Error", "Failed to delete profile.", PRIMARY_DARK);
             }
         });
-        refreshShifts.doClick();
-        addShiftBtn.addActionListener(e -> addDriverShift(driver));
-
-        // Nav buttons
-        JButton bOverview = createModernButton("Overview", PRIMARY_COLOR);
-        JButton bRides = createModernButton("My Rides", PRIMARY_LIGHT);
-        JButton bVehicle = createModernButton("Vehicle", PRIMARY_LIGHT);
-        JButton bShifts = createModernButton("Shifts", PRIMARY_LIGHT);
         JButton logout = createModernButton("Logout", PRIMARY_DARK);
         logout.addActionListener(ev -> showWelcomeScreen());
+        footerArea.add(delete);
+        footerArea.add(logout);
 
-        nav.add(bOverview); nav.add(Box.createVerticalStrut(8)); nav.add(bRides); nav.add(Box.createVerticalStrut(8)); nav.add(bVehicle);
-        nav.add(Box.createVerticalStrut(8)); nav.add(bShifts); nav.add(Box.createVerticalStrut(12)); nav.add(logout);
-
-        cards.add(overview, "OV"); cards.add(rides, "MR"); cards.add(vehicleCard, "VH"); cards.add(shiftsCard, "SH");
-        bOverview.addActionListener(e -> inner.show(cards, "OV"));
-        bRides.addActionListener(e -> inner.show(cards, "MR"));
-        bVehicle.addActionListener(e -> inner.show(cards, "VH"));
-        bShifts.addActionListener(e -> inner.show(cards, "SH"));
-
-        main.add(nav, BorderLayout.WEST);
-        main.add(cards, BorderLayout.CENTER);
-        panel.add(main, BorderLayout.CENTER);
+        panel.add(footerArea, BorderLayout.SOUTH);
         return panel;
-    }
-
-    private JPanel createDriverHeader(Driver driver) {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(PRIMARY_DARK);
-        header.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
-        JLabel title = new JLabel("Driver Dashboard"); title.setFont(FONT_HEADER); title.setForeground(Color.WHITE);
-        JLabel sub = new JLabel("Welcome, " + driver.getName()); sub.setForeground(new Color(255,255,255,200));
-        header.add(title, BorderLayout.WEST); header.add(sub, BorderLayout.EAST);
-        return header;
     }
 
     private void showRiderDashboard(Rider rider) {
@@ -650,83 +705,129 @@ public class RideSharingGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(BACKGROUND_COLOR);
 
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(PRIMARY_DARK);
-        header.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        JLabel title = new JLabel("Rider Dashboard"); title.setFont(FONT_HEADER); title.setForeground(Color.WHITE);
-        JLabel sub = new JLabel("Welcome, " + rider.getName()); sub.setForeground(new Color(255,255,255,200));
-        header.add(title, BorderLayout.WEST); header.add(sub, BorderLayout.EAST);
+        // Header similar to landing
+        JPanel header = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                GradientPaint gp = new GradientPaint(0, 0, PRIMARY_DARK, getWidth(), 0, PRIMARY_LIGHT);
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+            }
+        };
+        header.setPreferredSize(new Dimension(0, 110));
+        header.setLayout(new BorderLayout());
+        header.setBorder(BorderFactory.createEmptyBorder(14, 20, 14, 20));
 
-        JPanel main = new JPanel(new BorderLayout());
-        main.setBackground(BACKGROUND_COLOR);
-        main.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        JLabel title = new JLabel("Rider Dashboard");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(Color.WHITE);
 
-        JPanel nav = new JPanel();
-        nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBackground(BACKGROUND_COLOR);
-        nav.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
+        JLabel subtitle = new JLabel("Welcome, " + rider.getName());
+        subtitle.setFont(FONT_BODY);
+        subtitle.setForeground(new Color(255,255,255,200));
 
-        CardLayout inner = new CardLayout();
-        JPanel cards = new JPanel(inner);
-        cards.setBackground(BACKGROUND_COLOR);
+        JPanel text = new JPanel(new GridLayout(2,1));
+        text.setOpaque(false);
+        text.add(title); text.add(subtitle);
+        header.add(text, BorderLayout.WEST);
 
-        // Overview card
-        JPanel overview = new JPanel(new BorderLayout()); overview.setBackground(CARD_COLOR);
-        JTextArea ovText = new JTextArea("Wallet Balance: PKR " + String.format("%.2f", rider.getBalance()));
-        ovText.setEditable(false); ovText.setOpaque(false); overview.add(ovText, BorderLayout.CENTER);
+        // Center: stats and actions laid out like landing page boxes
+        JPanel center = new JPanel(new BorderLayout());
+        center.setBackground(BACKGROUND_COLOR);
+        center.setBorder(BorderFactory.createEmptyBorder(18,18,18,18));
 
-        // Book card will open the wizard
-        JPanel bookCard = new JPanel(new GridBagLayout()); bookCard.setBackground(CARD_COLOR);
-        JButton bookBtn = createModernButton("Book a Ride", PRIMARY_COLOR);
+        // Stats row
+        JPanel statsRow = new JPanel(new GridLayout(1, 3, 18, 0));
+        statsRow.setOpaque(false);
+        int ridesCount = 0;
+        try {
+            List<String> rides = rideDAO.getRidesByRider(rider.getUserId());
+            ridesCount = rides == null ? 0 : rides.size();
+        } catch (Exception ignored) {}
+        statsRow.add(createStatCard("Wallet", String.format("PKR %.2f", rider.getBalance()), PRIMARY_COLOR));
+        statsRow.add(createStatCard("My Rides", String.valueOf(ridesCount), PRIMARY_LIGHT));
+        statsRow.add(createStatCard("Saved Routes", String.valueOf(routeDAO.getAllRoutes().size()), PRIMARY_DARK));
+
+        center.add(statsRow, BorderLayout.NORTH);
+
+        // Action area: three big boxes (Book, Wallet, Feedback)
+        JPanel actions = new JPanel(new GridBagLayout());
+        actions.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(18, 18, 18, 18);
+        gbc.fill = GridBagConstraints.BOTH;
+
+        // Book card
+        JPanel bookCard = new RoundedPanel(12, CARD_COLOR);
+        bookCard.setLayout(new BorderLayout(12,12));
+        bookCard.setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+        JLabel bkTitle = new JLabel("Book a Ride");
+        bkTitle.setFont(FONT_SUBHEADER);
+        bkTitle.setForeground(TEXT_PRIMARY);
+        JTextArea bkDesc = new JTextArea("Find a nearby driver, choose a route and pay with wallet, card or cash. Fast and secure.");
+        bkDesc.setEditable(false); bkDesc.setOpaque(false); bkDesc.setLineWrap(true); bkDesc.setWrapStyleWord(true);
+        JButton bookBtn = createLargePrimaryButton("Start Booking (Wizard)", PRIMARY_COLOR);
         bookBtn.addActionListener(e -> openBookingWizard(rider));
-        bookCard.add(bookBtn);
+        bookCard.add(bkTitle, BorderLayout.NORTH);
+        bookCard.add(bkDesc, BorderLayout.CENTER);
+        bookCard.add(bookBtn, BorderLayout.SOUTH);
 
-        // My rides and routes placeholders
-        JPanel rides = new JPanel(new BorderLayout()); rides.setBackground(CARD_COLOR);
-        JTextArea ridesArea = new JTextArea("No rides yet");
-        ridesArea.setEditable(false); rides.add(new JScrollPane(ridesArea), BorderLayout.CENTER);
+        // Wallet card
+        JPanel walletCard = new RoundedPanel(12, CARD_COLOR);
+        walletCard.setLayout(new BorderLayout(12,12));
+        walletCard.setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+        JLabel wTitle = new JLabel("Wallet");
+        wTitle.setFont(FONT_SUBHEADER);
+        wTitle.setForeground(TEXT_PRIMARY);
+        JTextArea wDesc = new JTextArea("Top up your wallet for faster, cashless payments.");
+        wDesc.setEditable(false); wDesc.setOpaque(false); wDesc.setLineWrap(true); wDesc.setWrapStyleWord(true);
+        JButton topUpBtn = createLargePrimaryButton("Top-up Wallet", PRIMARY_LIGHT);
+        topUpBtn.addActionListener(e -> addMoneyToWallet(rider));
+        walletCard.add(wTitle, BorderLayout.NORTH);
+        walletCard.add(wDesc, BorderLayout.CENTER);
+        walletCard.add(topUpBtn, BorderLayout.SOUTH);
 
-        JPanel routes = new JPanel(new BorderLayout()); routes.setBackground(CARD_COLOR);
-        JTextArea routesArea = new JTextArea();
-        routesArea.setEditable(false); routes.add(new JScrollPane(routesArea), BorderLayout.CENTER);
+        // Feedback card
+        JPanel fbCard = new RoundedPanel(12, CARD_COLOR);
+        fbCard.setLayout(new BorderLayout(12,12));
+        fbCard.setBorder(BorderFactory.createEmptyBorder(16,16,16,16));
+        JLabel fTitle = new JLabel("Feedback");
+        fTitle.setFont(FONT_SUBHEADER);
+        fTitle.setForeground(TEXT_PRIMARY);
+        JTextArea fDesc = new JTextArea("Rate drivers and submit feedback to improve service quality.");
+        fDesc.setEditable(false); fDesc.setOpaque(false); fDesc.setLineWrap(true); fDesc.setWrapStyleWord(true);
+        JButton fbBtn = createLargePrimaryButton("Submit Feedback", PRIMARY_LIGHT);
+        fbBtn.addActionListener(e -> submitFeedback(rider));
+        fbCard.add(fTitle, BorderLayout.NORTH);
+        fbCard.add(fDesc, BorderLayout.CENTER);
+        fbCard.add(fbBtn, BorderLayout.SOUTH);
 
-        // Nav buttons
-        JButton nOverview = createModernButton("Overview", PRIMARY_COLOR);
-        JButton nBook = createModernButton("Book Ride", PRIMARY_LIGHT);
-        JButton nRides = createModernButton("My Rides", PRIMARY_LIGHT);
-        JButton nRoutes = createModernButton("Routes", PRIMARY_LIGHT);
-        JButton nFeedback = createModernButton("Feedback", PRIMARY_LIGHT);
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 1;
+        actions.add(bookCard, gbc);
+        gbc.gridx = 1;
+        actions.add(walletCard, gbc);
+        gbc.gridx = 2;
+        actions.add(fbCard, gbc);
+
+        center.add(actions, BorderLayout.CENTER);
+
+        panel.add(header, BorderLayout.NORTH);
+        panel.add(center, BorderLayout.CENTER);
+
+        // Footer: quick links + logout
+        JPanel footerArea = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footerArea.setBackground(BACKGROUND_COLOR);
+        JButton viewRides = createModernButton("View My Rides", PRIMARY_LIGHT);
+        viewRides.addActionListener(e -> viewRiderRides(rider));
         JButton logout = createModernButton("Logout", PRIMARY_DARK);
         logout.addActionListener(ev -> showWelcomeScreen());
+        footerArea.add(viewRides);
+        footerArea.add(logout);
 
-        nav.add(nOverview); nav.add(Box.createVerticalStrut(8)); nav.add(nBook); nav.add(Box.createVerticalStrut(8)); nav.add(nRides);
-        nav.add(Box.createVerticalStrut(8)); nav.add(nRoutes); nav.add(Box.createVerticalStrut(8)); nav.add(nFeedback); nav.add(Box.createVerticalStrut(12)); nav.add(logout);
-
-        cards.add(overview, "OV"); cards.add(bookCard, "BK"); cards.add(rides, "MR"); cards.add(routes, "RT");
-        // Feedback card
-        JPanel feedbackCard = new JPanel(new BorderLayout()); feedbackCard.setBackground(CARD_COLOR);
-        JTextArea fbArea = new JTextArea(); fbArea.setEditable(false); fbArea.setFont(FONT_BODY);
-        JPanel fbBtns = new JPanel(new FlowLayout(FlowLayout.RIGHT)); fbBtns.setBackground(CARD_COLOR);
-        JButton submitFb = createModernButton("Submit Feedback", PRIMARY_COLOR);
-        fbBtns.add(submitFb);
-        feedbackCard.add(new JScrollPane(fbArea), BorderLayout.CENTER); feedbackCard.add(fbBtns, BorderLayout.SOUTH);
-        cards.add(feedbackCard, "FB");
-
-        nOverview.addActionListener(e -> inner.show(cards, "OV"));
-        nBook.addActionListener(e -> inner.show(cards, "BK"));
-        nRides.addActionListener(e -> { ridesArea.setText(String.join("\n", rideDAO.getRidesByRider(rider.getUserId()))); inner.show(cards, "MR"); });
-        nRoutes.addActionListener(e -> { var rs = routeDAO.getAllRoutes(); StringBuilder sb = new StringBuilder(); for (Route r : rs) sb.append(r.toString()).append("\n"); routesArea.setText(sb.toString()); inner.show(cards, "RT"); });
-        nFeedback.addActionListener(e -> {
-            // Optionally show previous feedbacks (if DAO supports); otherwise show card and allow submission
-            fbArea.setText("Use 'Submit Feedback' to add feedback for a ride.\n\nYour rides:\n" + String.join("\n", rideDAO.getRidesByRider(rider.getUserId())));
-            inner.show(cards, "FB");
-        });
-        submitFb.addActionListener(e -> submitFeedback(rider));
-
-        main.add(nav, BorderLayout.WEST);
-        main.add(cards, BorderLayout.CENTER);
-        panel.add(header, BorderLayout.NORTH);
-        panel.add(main, BorderLayout.CENTER);
+        panel.add(footerArea, BorderLayout.SOUTH);
         return panel;
     }
 
@@ -936,6 +1037,8 @@ public class RideSharingGUI extends JFrame {
                     userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
                     walletBalanceLabel.setText("PKR " + String.format("%.2f", rider.getBalance()));
                     showMessage("Success", "Wallet topped up", PRIMARY_COLOR);
+                    // refresh rider dashboard if currently visible so overview reflects new balance
+                    try { showRiderDashboard(rider); } catch (Exception ignored) {}
                 } catch (Exception ex) { showMessage("Error", "Invalid number", PRIMARY_DARK); }
             });
 
@@ -1055,6 +1158,19 @@ public class RideSharingGUI extends JFrame {
                     return;
                 }
                 selectedDriverId = extractDriverIdFromListItem(driversList.getSelectedValue());
+                // Availability checks: vehicle, shift, and in-progress ride
+                if (!driverHasVehicle(selectedDriverId)) {
+                    showMessage("Unavailable", "Selected driver has no vehicle registered. Please choose another driver.", PRIMARY_DARK);
+                    return;
+                }
+                if (!driverHasActiveShiftNow(selectedDriverId)) {
+                    showMessage("Unavailable", "Selected driver is not on shift right now. Please choose another driver.", PRIMARY_DARK);
+                    return;
+                }
+                if (driverHasInProgressRide(selectedDriverId)) {
+                    showMessage("Busy", "Selected driver currently has an in-progress ride. Please choose another driver.", PRIMARY_DARK);
+                    return;
+                }
                 stepsLayout.show(stepsPanel, "STEP2");
                 backBtn.setEnabled(true);
             } else if (step.equals("STEP2")) {
@@ -1100,6 +1216,11 @@ public class RideSharingGUI extends JFrame {
                 // final validations
                 if (selectedDriverId <= 0 || selectedRoute == null || computedFare <= 0) {
                     showMessage("Error", "Invalid booking state", PRIMARY_DARK); return;
+                }
+                // Re-check availability just before booking to avoid race conditions
+                if (!isDriverAvailableNow(selectedDriverId)) {
+                    showMessage("Unavailable", "Driver is not available at the moment. Please choose another driver.", PRIMARY_DARK);
+                    return;
                 }
                 String assistantName = assistantCheck.isSelected() ? assistantNameField.getText().trim() : null;
 
@@ -1183,6 +1304,50 @@ public class RideSharingGUI extends JFrame {
         return 100 + km * 50;
     }
 
+    // ----------------- Availability helpers -----------------
+    private boolean driverHasVehicle(int driverId) {
+        try {
+            Vehicle v = vehicleDAO.getVehicleByDriverId(driverId);
+            return v != null;
+        } catch (Exception e) { return false; }
+    }
+
+    private boolean driverHasInProgressRide(int driverId) {
+        try {
+            return rideDAO.hasInProgressRideForDriver(driverId);
+        } catch (Exception e) { return false; }
+    }
+
+    private boolean driverHasActiveShiftNow(int driverId) {
+        try {
+            var shifts = shiftDAO.getShiftsByDriver(driverId);
+            if (shifts == null || shifts.isEmpty()) return false;
+            LocalDate today = LocalDate.now();
+            LocalTime now = LocalTime.now();
+            for (Object o : shifts) {
+                try {
+                    DriverShift s = (DriverShift) o;
+                    java.sql.Date sd = s.getShiftDate();
+                    java.sql.Time st = s.getStartTime();
+                    java.sql.Time et = s.getEndTime();
+                    if (sd == null || st == null || et == null) continue;
+                    LocalDate shiftDate = sd.toLocalDate();
+                    LocalTime start = st.toLocalTime();
+                    LocalTime end = et.toLocalTime();
+                    if (today.equals(shiftDate) && (!now.isBefore(start) && !now.isAfter(end))) return true;
+                } catch (Exception ignored) {}
+            }
+            return false;
+        } catch (Exception e) { return false; }
+    }
+
+    private boolean isDriverAvailableNow(int driverId) {
+        if (!driverHasVehicle(driverId)) return false;
+        if (!driverHasActiveShiftNow(driverId)) return false;
+        if (driverHasInProgressRide(driverId)) return false;
+        return true;
+    }
+
     // ----------------- GUI equivalents of CLI actions -----------------
 
     private void showLargeText(String title, String text) {
@@ -1247,30 +1412,56 @@ public class RideSharingGUI extends JFrame {
     }
 
     private void startRideAction(Driver driver) {
-        String input = JOptionPane.showInputDialog(this, "Enter Ride ID to start:", "Start Ride", JOptionPane.PLAIN_MESSAGE);
-        if (input == null) return;
-        try {
-            int rideId = Integer.parseInt(input.trim());
-            boolean ok = rideDAO.startRideTransaction(rideId, driver.getUserId());
-            showMessage(ok ? "Success" : "Error", ok ? "Ride marked In Progress." : "Failed to mark ride as In Progress.", ok ? PRIMARY_COLOR : PRIMARY_DARK);
-        } catch (Exception e) { showMessage("Error", "Invalid Ride ID", PRIMARY_DARK); }
+        // Validate driver can start rides: must have vehicle, be on shift now, and not already have another in-progress ride
+        int did = driver.getUserId();
+        if (!driverHasVehicle(did)) { showMessage("Unavailable", "You must add a vehicle before starting rides.", PRIMARY_DARK); return; }
+        if (!driverHasActiveShiftNow(did)) { showMessage("Unavailable", "You are not scheduled for a shift right now. Add a shift or try within your shift times.", PRIMARY_DARK); return; }
+        if (driverHasInProgressRide(did)) { showMessage("Busy", "You already have an in-progress ride. Complete it before starting another.", PRIMARY_DARK); return; }
+
+        // Present list of pending/confirmed rides assigned to this driver
+        var candidates = rideDAO.getPendingOrConfirmedRidesForDriver(did);
+        if (candidates == null || candidates.isEmpty()) {
+            showMessage("Info", "No pending/confirmed rides available to start.", PRIMARY_DARK);
+            return;
+        }
+        JList<String> list = new JList<>(candidates.toArray(new String[0]));
+        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        int res = JOptionPane.showConfirmDialog(this, new JScrollPane(list), "Select ride to start", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (res != JOptionPane.OK_OPTION) return;
+        String sel = list.getSelectedValue();
+        if (sel == null) { showMessage("Error", "No ride selected.", PRIMARY_DARK); return; }
+        int rideId = extractDriverIdFromListItem(sel);
+        boolean ok = rideDAO.startRideTransaction(rideId, driver.getUserId());
+        showMessage(ok ? "Success" : "Error", ok ? "Ride marked In Progress." : "Failed to mark ride as In Progress.", ok ? PRIMARY_COLOR : PRIMARY_DARK);
+        try { showDriverDashboard(driver); } catch (Exception ignored) {}
     }
 
     private void completeRideAction(Driver driver) {
-        String input = JOptionPane.showInputDialog(this, "Enter Ride ID to complete:", "Complete Ride", JOptionPane.PLAIN_MESSAGE);
-        if (input == null) return;
-        try {
-            int rideId = Integer.parseInt(input.trim());
-            double fare = rideDAO.getFareByRideId(rideId);
-            if (fare < 0) { showMessage("Error", "Could not determine fare for ride.", PRIMARY_DARK); return; }
-            boolean ok = rideDAO.completeRideTransaction(rideId, driver.getUserId(), fare);
-            if (ok) {
-                try { driver.addEarnings(fare); } catch (Exception ignored) {}
-                showMessage("Success", "Ride completed and earnings updated.", PRIMARY_COLOR);
-                // refresh driver dashboard to reflect earnings change
-                try { showDriverDashboard(driver); } catch (Exception ignored) {}
-            } else showMessage("Error", "Failed to complete ride.", PRIMARY_DARK);
-        } catch (Exception e) { showMessage("Error", "Invalid Ride ID", PRIMARY_DARK); }
+        // Show in-progress rides for this driver
+        int did = driver.getUserId();
+        var inProg = rideDAO.getInProgressRidesForDriver(did);
+        if (inProg == null || inProg.isEmpty()) {
+            int r = JOptionPane.showConfirmDialog(this, "No started rides found. Start a ride now?", "No In-Progress Rides", JOptionPane.YES_NO_OPTION);
+            if (r == JOptionPane.YES_OPTION) {
+                startRideAction(driver);
+            }
+            return;
+        }
+        JList<String> list = new JList<>(inProg.toArray(new String[0]));
+        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        int res = JOptionPane.showConfirmDialog(this, new JScrollPane(list), "Select in-progress ride to complete", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (res != JOptionPane.OK_OPTION) return;
+        String sel = list.getSelectedValue();
+        if (sel == null) { showMessage("Error", "No ride selected.", PRIMARY_DARK); return; }
+        int rideId = extractDriverIdFromListItem(sel);
+        double fare = rideDAO.getFareByRideId(rideId);
+        if (fare < 0) { showMessage("Error", "Could not determine fare for ride.", PRIMARY_DARK); return; }
+        boolean ok = rideDAO.completeRideTransaction(rideId, driver.getUserId(), fare);
+        if (ok) {
+            try { driver.addEarnings(fare); } catch (Exception ignored) {}
+            showMessage("Success", "Ride completed and earnings updated.", PRIMARY_COLOR);
+            try { showDriverDashboard(driver); } catch (Exception ignored) {}
+        } else showMessage("Error", "Failed to complete ride.", PRIMARY_DARK);
     }
 
     private void viewDriverShifts(Driver driver) {
@@ -1302,8 +1493,25 @@ public class RideSharingGUI extends JFrame {
                 java.sql.Time end = java.sql.Time.valueOf(endF.getText().trim());
                 boolean ok = shiftDAO.addShift(driver.getUserId(), date, start, end);
                 showMessage(ok ? "Success" : "Error", ok ? "Shift added." : "Failed to add shift.", ok ? PRIMARY_COLOR : PRIMARY_DARK);
-                if (ok) d.dispose();
-            } catch (Exception ex) { showMessage("Error", "Invalid date/time format.", PRIMARY_DARK); }
+                if (ok) { d.dispose(); try { showDriverDashboard(driver); } catch (Exception ignored) {} }
+            } catch (Exception ex) {
+                // Fallback: ask for combined input to reduce parsing errors
+                String combined = JOptionPane.showInputDialog(d, "Invalid format. Enter shift as: YYYY-MM-DD HH:MM:SS-HH:MM:SS", "Fallback Input", JOptionPane.PLAIN_MESSAGE);
+                if (combined == null) return;
+                try {
+                    // expected: 2025-11-26 09:00:00-17:00:00
+                    String[] parts = combined.trim().split("\\s+");
+                    if (parts.length != 2) throw new IllegalArgumentException("Bad format");
+                    java.sql.Date date = java.sql.Date.valueOf(parts[0]);
+                    String[] times = parts[1].split("-");
+                    if (times.length != 2) throw new IllegalArgumentException("Bad time range");
+                    java.sql.Time start = java.sql.Time.valueOf(times[0]);
+                    java.sql.Time end = java.sql.Time.valueOf(times[1]);
+                    boolean ok = shiftDAO.addShift(driver.getUserId(), date, start, end);
+                    showMessage(ok ? "Success" : "Error", ok ? "Shift added." : "Failed to add shift.", ok ? PRIMARY_COLOR : PRIMARY_DARK);
+                    if (ok) { d.dispose(); try { showDriverDashboard(driver); } catch (Exception ignored) {} }
+                } catch (Exception ex2) { showMessage("Error", "Invalid date/time format.", PRIMARY_DARK); }
+            }
         });
         cancel.addActionListener(e -> d.dispose()); btns.add(add); btns.add(cancel); gbc.gridy++; p.add(btns, gbc);
         d.add(p); d.setVisible(true);
@@ -1318,6 +1526,8 @@ public class RideSharingGUI extends JFrame {
             rider.addBalance(a);
             userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
             showMessage("Success", "Added successfully. New balance: PKR " + String.format("%.2f", rider.getBalance()), PRIMARY_COLOR);
+            // refresh rider dashboard so overview wallet balance updates
+            try { showRiderDashboard(rider); } catch (Exception ignored) {}
         } catch (Exception e) { showMessage("Error", "Invalid number", PRIMARY_DARK); }
     }
 

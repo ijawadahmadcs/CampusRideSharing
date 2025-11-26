@@ -240,4 +240,71 @@ public class RideDAO {
             return false;
         }
     }
+
+    // Check if driver currently has any ride with status 'In Progress'
+    public boolean hasInProgressRideForDriver(int driverId) {
+        String sql = "SELECT COUNT(*) as cnt FROM Rides WHERE driver_id = ? AND status = 'In Progress'";
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, driverId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) return rs.getInt("cnt") > 0;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error checking in-progress rides: " + e.getMessage());
+        }
+        return false;
+    }
+
+    // Get rides for driver filtered by statuses (e.g., Pending, Confirmed)
+    public List<String> getRidesByDriverWithStatuses(int driverId, List<String> statuses) {
+        List<String> rides = new ArrayList<>();
+        if (statuses == null || statuses.isEmpty()) return rides;
+        StringBuilder in = new StringBuilder();
+        for (int i = 0; i < statuses.size(); i++) {
+            in.append("?");
+            if (i < statuses.size() - 1) in.append(",");
+        }
+        String sql = "SELECT r.ride_id, r.fare, r.status, r.ride_time, " +
+                     "ro.start_location, ro.end_location, u.name as rider_name " +
+                     "FROM Rides r " +
+                     "JOIN Routes ro ON r.route_id = ro.route_id " +
+                     "JOIN Users u ON r.rider_id = u.user_id " +
+                     "WHERE r.driver_id = ? AND r.status IN (" + in.toString() + ") ORDER BY r.ride_time DESC";
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, driverId);
+            for (int i = 0; i < statuses.size(); i++) stmt.setString(2 + i, statuses.get(i));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String ride = String.format(
+                        "Ride#%d | %s→%s | Rider: %s | Fare: PKR %.2f | Status: %s | Time: %s",
+                        rs.getInt("ride_id"),
+                        rs.getString("start_location"),
+                        rs.getString("end_location"),
+                        rs.getString("rider_name"),
+                        rs.getDouble("fare"),
+                        rs.getString("status"),
+                        rs.getTimestamp("ride_time")
+                    );
+                    rides.add(ride);
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("Error getting filtered rides: " + e.getMessage());
+        }
+        return rides;
+    }
+
+    public List<String> getPendingOrConfirmedRidesForDriver(int driverId) {
+        List<String> sts = new ArrayList<>(); sts.add("Pending"); sts.add("Confirmed");
+        return getRidesByDriverWithStatuses(driverId, sts);
+    }
+
+    public List<String> getInProgressRidesForDriver(int driverId) {
+        List<String> sts = new ArrayList<>(); sts.add("In Progress");
+        return getRidesByDriverWithStatuses(driverId, sts);
+    }
 }

@@ -5,9 +5,8 @@ import java.sql.*;
 
 public class UserDAO {
 
-    // =========================
+
     // REGISTER NEW DRIVER
-    // =========================
     public boolean registerDriver(String name, String email, String password, String licenseNumber) {
         Connection conn = DatabaseConfig.getConnection();
 
@@ -45,9 +44,7 @@ public class UserDAO {
         return false;
     }
 
-    // =========================
     // REGISTER NEW RIDER
-    // =========================
     public boolean registerRider(String name, String email, String password) {
         Connection conn = DatabaseConfig.getConnection();
 
@@ -84,9 +81,7 @@ public class UserDAO {
         return false;
     }
 
-    // =========================
     // DRIVER LOGIN
-    // =========================
     public Driver loginDriver(String email, String password) {
         Connection conn = DatabaseConfig.getConnection();
 
@@ -119,9 +114,8 @@ public class UserDAO {
         return null;
     }
 
-    // =========================
+
     // RIDER LOGIN
-    // =========================
     public Rider loginRider(String email, String password) {
         Connection conn = DatabaseConfig.getConnection();
 
@@ -153,9 +147,7 @@ public class UserDAO {
         return null;
     }
 
-    // =========================
     // UPDATE RIDER BALANCE
-    // =========================
     public boolean updateRiderBalance(int riderId, double balance) {
         Connection conn = DatabaseConfig.getConnection();
 
@@ -174,9 +166,7 @@ public class UserDAO {
         return false;
     }
 
-    // =========================
     // UPDATE DRIVER EARNINGS
-    // =========================
     public boolean updateDriverEarnings(int driverId, double totalEarnings) {
         Connection conn = DatabaseConfig.getConnection();
 
@@ -193,5 +183,63 @@ public class UserDAO {
         }
 
         return false;
+    }
+
+    // Delete user and related data (rides, payments, feedback, vehicles, shifts, driver/rider records)
+    public boolean deleteUser(int userId) {
+        Connection conn = DatabaseConfig.getNewConnection();
+        if (conn == null) return false;
+        try {
+            conn.setAutoCommit(false);
+
+            // Delete payments linked to rides of this user (as rider or driver)
+            String delPayments = "DELETE p FROM Payments p JOIN Rides r ON p.ride_id = r.ride_id WHERE r.rider_id = ? OR r.driver_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(delPayments)) { ps.setInt(1, userId); ps.setInt(2, userId); ps.executeUpdate(); }
+
+            // Delete ride assistants for rides of this user
+            String delAssist = "DELETE ra FROM Ride_Assistants ra JOIN Rides r ON ra.ride_id = r.ride_id WHERE r.rider_id = ? OR r.driver_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(delAssist)) { ps.setInt(1, userId); ps.setInt(2, userId); ps.executeUpdate(); }
+
+            // Delete feedbacks linked to rides
+            String delFeedback = "DELETE f FROM Feedback f JOIN Rides r ON f.ride_id = r.ride_id WHERE r.rider_id = ? OR r.driver_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(delFeedback)) { ps.setInt(1, userId); ps.setInt(2, userId); ps.executeUpdate(); }
+
+            // Delete rides where this user is rider or driver
+            String delRides = "DELETE FROM Rides WHERE rider_id = ? OR driver_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(delRides)) { ps.setInt(1, userId); ps.setInt(2, userId); ps.executeUpdate(); }
+
+            // Delete driver shifts
+            String delShifts = "DELETE FROM Driver_Shifts WHERE driver_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(delShifts)) { ps.setInt(1, userId); ps.executeUpdate(); }
+
+            // Delete vehicle(s) owned by driver (first fetch vehicle ids via Drivers table)
+            try (PreparedStatement psv = conn.prepareStatement("SELECT vehicle_id FROM Drivers WHERE driver_id = ?")) {
+                psv.setInt(1, userId);
+                try (ResultSet rs = psv.executeQuery()) {
+                    while (rs.next()) {
+                        int vid = rs.getInt("vehicle_id");
+                        if (vid > 0) {
+                            try (PreparedStatement pd = conn.prepareStatement("DELETE FROM Vehicles WHERE vehicle_id = ?")) { pd.setInt(1, vid); pd.executeUpdate(); }
+                        }
+                    }
+                }
+            }
+
+            // Delete driver/rider records
+            try (PreparedStatement psd = conn.prepareStatement("DELETE FROM Drivers WHERE driver_id = ?")) { psd.setInt(1, userId); psd.executeUpdate(); }
+            try (PreparedStatement psr = conn.prepareStatement("DELETE FROM Riders WHERE rider_id = ?")) { psr.setInt(1, userId); psr.executeUpdate(); }
+
+            // Finally delete user
+            try (PreparedStatement psu = conn.prepareStatement("DELETE FROM Users WHERE user_id = ?")) { psu.setInt(1, userId); psu.executeUpdate(); }
+
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            try { conn.rollback(); } catch (SQLException ignored) {}
+            System.err.println("Error deleting user and related data: " + e.getMessage());
+            return false;
+        } finally {
+            try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
+        }
     }
 }

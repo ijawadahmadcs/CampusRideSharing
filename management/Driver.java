@@ -1,26 +1,18 @@
-/**
- * Driver class (Inheritance from User + Composition with Vehicle)
- * Simple, clean, and easy for beginners. GUI-ready structure.
- */
 public class Driver extends User {
 
     private String licenseNumber;     // Driver's license number
     private double totalEarnings;     // Total earnings in PKR
     private Vehicle vehicle;          // Driver's assigned vehicle (Composition)
 
-    /**
-     * Constructor for creating a Driver object
-     */
+    
+    //Constructor for creating a Driver object
     public Driver(int userId, String name, String email, String password, String licenseNumber) {
         super(userId, name, email, password, "Driver"); // Call parent User constructor
         this.licenseNumber = licenseNumber;
         this.totalEarnings = 0.0; // Default earnings
     }
 
-    // =====================
     // Getters and Setters
-    // =====================
-
     public String getLicenseNumber() {
         return licenseNumber;
     }
@@ -45,24 +37,18 @@ public class Driver extends User {
         this.vehicle = vehicle;
     }
 
-    /**
-     * Add money to the driver’s total earnings
-     */
+    // Add money to the driver’s total earnings
     public void addEarnings(double amount) {
         this.totalEarnings += amount;
     }
 
-    /**
-     * Does the driver have a vehicle assigned?
-     */
+    
+     //Does the driver have a vehicle assigned?
     public boolean hasVehicle() {
         return vehicle != null;
     }
 
-    // =====================
     // User Class Overrides
-    // =====================
-
     @Override
     public void displayProfile() {
         System.out.println("\n====== DRIVER PROFILE ======");
