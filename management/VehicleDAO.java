@@ -69,7 +69,7 @@ public class VehicleDAO {
         List<String> drivers = new ArrayList<>();
         Connection conn = DatabaseConfig.getConnection();
         try {
-            String sql = "SELECT u.user_id, u.name, v.model, v.plate_number, v.capacity, d.total_earnings " +
+                String sql = "SELECT u.user_id, u.name, v.model, v.plate_number, v.capacity " +
                     "FROM Users u " +
                     "JOIN Drivers d ON u.user_id = d.driver_id " +
                     "LEFT JOIN Vehicles v ON d.vehicle_id = v.vehicle_id " +
@@ -79,13 +79,12 @@ public class VehicleDAO {
 
             while (rs.next()) {
                 String driver = String.format(
-                        "ID: %d | Name: %s | Vehicle: %s (%s) | Capacity: %d | Earnings: PKR %.2f",
-                        rs.getInt("user_id"),
-                        rs.getString("name"),
-                        rs.getString("model") != null ? rs.getString("model") : "No Vehicle",
-                        rs.getString("plate_number") != null ? rs.getString("plate_number") : "N/A",
-                        rs.getInt("capacity"),
-                        rs.getDouble("total_earnings")
+                    "ID: %d | Name: %s | Vehicle: %s (%s) | Capacity: %d",
+                    rs.getInt("user_id"),
+                    rs.getString("name"),
+                    rs.getString("model") != null ? rs.getString("model") : "No Vehicle",
+                    rs.getString("plate_number") != null ? rs.getString("plate_number") : "N/A",
+                    rs.getInt("capacity")
                 );
                 drivers.add(driver);
             }

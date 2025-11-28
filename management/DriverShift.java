@@ -2,18 +2,27 @@ import java.sql.Date;
 import java.sql.Time;
 
 public class DriverShift {
+    private int shiftId;
     private int driverId;
     private Date shiftDate;
     private Time startTime;
     private Time endTime;
 
-    public DriverShift(int driverId, Date shiftDate, Time startTime, Time endTime) {
+    // Constructor for rows read from DB (includes generated shift_id)
+    public DriverShift(int shiftId, int driverId, Date shiftDate, Time startTime, Time endTime) {
+        this.shiftId = shiftId;
         this.driverId = driverId;
         this.shiftDate = shiftDate;
         this.startTime = startTime;
         this.endTime = endTime;
     }
 
+    // Constructor for new shifts (no shiftId yet)
+    public DriverShift(int driverId, Date shiftDate, Time startTime, Time endTime) {
+        this(0, driverId, shiftDate, startTime, endTime);
+    }
+
+    public int getShiftId() { return shiftId; }
     public int getDriverId() { return driverId; }
     public Date getShiftDate() { return shiftDate; }
     public Time getStartTime() { return startTime; }
@@ -22,10 +31,11 @@ public class DriverShift {
     @Override
     public String toString() {
         return "DriverShift{" +
-                "driverId=" + driverId +
-                ", shiftDate=" + shiftDate +
-                ", startTime=" + startTime +
-                ", endTime=" + endTime +
-                '}';
+            "shiftId=" + shiftId +
+            ", driverId=" + driverId +
+            ", shiftDate=" + shiftDate +
+            ", startTime=" + startTime +
+            ", endTime=" + endTime +
+            '}';
     }
 }

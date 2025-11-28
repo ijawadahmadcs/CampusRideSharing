@@ -1,3 +1,6 @@
+//javac -cp "libs/mysql-connector-j-9.5.0.jar" -d out management\*.java
+//java -cp "out;libs/mysql-connector-j-9.5.0.jar" Rydex 
+
 import java.awt.*;
 import java.awt.event.*;
 import java.time.LocalDate;
@@ -6,7 +9,7 @@ import java.util.List;
 import javax.swing.*;
 import javax.swing.border.*;
 
-public class RideSharingGUI extends JFrame {
+public class Rydex extends JFrame {
 
     // Colors & Fonts
     private static final Color PRIMARY_COLOR = new Color(0x6A, 0x1B, 0x9A);
@@ -38,8 +41,8 @@ public class RideSharingGUI extends JFrame {
     private DriverShiftDAO shiftDAO = new DriverShiftDAO();
     private RideAssistantDAO assistantDAO = new RideAssistantDAO();
 
-    public RideSharingGUI() {
-        setTitle("Campus Ride-Sharing System");
+    public Rydex() {
+        setTitle("Rydex");
         setSize(1000, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -64,7 +67,7 @@ public class RideSharingGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(BACKGROUND_COLOR);
 
-        JPanel header = createGradientHeader("Campus Ride-Sharing", "Your reliable campus transportation partner");
+        JPanel header = createGradientHeader("Rydex", "Your reliable campus transportation partner");
         JPanel center = new JPanel(new GridBagLayout());
         center.setBackground(BACKGROUND_COLOR);
         center.setBorder(BorderFactory.createEmptyBorder(30, 24, 30, 24));
@@ -192,7 +195,7 @@ public class RideSharingGUI extends JFrame {
         footer.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
         footer.setPreferredSize(new Dimension(1000, 52));
 
-        JLabel c = new JLabel("© 2024 Campus Ride-Sharing System - Made by Jawad Ahmad");
+        JLabel c = new JLabel("© 2025 Rydex - Made by Jawad Ahmad");
         c.setFont(FONT_BODY);
         c.setForeground(new Color(255, 255, 255, 180));
 
@@ -487,6 +490,32 @@ public class RideSharingGUI extends JFrame {
         f.setPreferredSize(new Dimension(420, 36));
         f.setBorder(BorderFactory.createCompoundBorder(new LineBorder(new Color(0,0,0,40), 1, true), BorderFactory.createEmptyBorder(6, 8, 6, 8)));
         return f;
+    }
+
+    // Apply a lightweight placeholder to a text field: gray text shown when empty,
+    // cleared when the field receives focus, and restored on focus lost if empty.
+    private void applyPlaceholder(JTextField f, String placeholder) {
+        Color placeholderColor = new Color(140, 140, 140);
+        f.setText(placeholder);
+        f.setForeground(placeholderColor);
+        f.putClientProperty("placeholder", placeholder);
+        f.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                if (f.getText().equals(placeholder)) {
+                    f.setText("");
+                    f.setForeground(TEXT_PRIMARY);
+                }
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                if (f.getText().trim().isEmpty()) {
+                    f.setText(placeholder);
+                    f.setForeground(placeholderColor);
+                }
+            }
+        });
     }
 
     private JPasswordField createStyledPasswordField() {
@@ -1466,21 +1495,70 @@ public class RideSharingGUI extends JFrame {
 
     private void viewDriverShifts(Driver driver) {
         var shifts = shiftDAO.getShiftsByDriver(driver.getUserId());
-        if (shifts == null || shifts.isEmpty()) showMessage("Shifts", "No shifts set.", PRIMARY_DARK);
-        else {
-            StringBuilder sb = new StringBuilder();
-            for (Object s : shifts) sb.append(s.toString()).append("\n");
-            showLargeText("Your Shifts", sb.toString());
+        if (shifts == null || shifts.isEmpty()) {
+            showMessage("Shifts", "No shifts set.", PRIMARY_DARK);
+            return;
         }
+
+        JDialog d = createCenteredDialog("Your Shifts", 700, 420);
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(BACKGROUND_COLOR);
+
+        String[] cols = new String[]{"ID", "Date", "Start", "End"};
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+        };
+
+        for (Object o : shifts) {
+            DriverShift ds = (DriverShift) o;
+            model.addRow(new Object[]{ds.getShiftId(), ds.getShiftDate(), ds.getStartTime(), ds.getEndTime()});
+        }
+
+        JTable table = new JTable(model);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane sp = new JScrollPane(table);
+        p.add(sp, BorderLayout.CENTER);
+
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.CENTER)); btns.setBackground(BACKGROUND_COLOR);
+        JButton endBtn = createModernButton("End Selected Shift Now", PRIMARY_COLOR);
+        JButton closeBtn = createModernButton("Close", PRIMARY_DARK);
+
+        endBtn.addActionListener(e -> {
+            int sel = table.getSelectedRow();
+            if (sel < 0) { showMessage("Error", "Please select a shift to end.", PRIMARY_DARK); return; }
+            int shiftId = (int) model.getValueAt(sel, 0);
+            int confirm = JOptionPane.showConfirmDialog(d, "End the selected shift now? This will set its end time to the current time.", "Confirm End Shift", JOptionPane.YES_NO_OPTION);
+            if (confirm != JOptionPane.YES_OPTION) return;
+            java.sql.Time now = java.sql.Time.valueOf(LocalTime.now());
+            boolean ok = shiftDAO.endShift(shiftId, now);
+            if (ok) {
+                showMessage("Success", "Shift ended at " + now.toString(), PRIMARY_COLOR);
+                // refresh table
+                var refreshed = shiftDAO.getShiftsByDriver(driver.getUserId());
+                model.setRowCount(0);
+                for (Object o2 : refreshed) {
+                    DriverShift ds2 = (DriverShift) o2;
+                    model.addRow(new Object[]{ds2.getShiftId(), ds2.getShiftDate(), ds2.getStartTime(), ds2.getEndTime()});
+                }
+            } else {
+                showMessage("Error", "Failed to end shift.", PRIMARY_DARK);
+            }
+        });
+
+        closeBtn.addActionListener(e -> d.dispose());
+        btns.add(endBtn); btns.add(closeBtn);
+        p.add(btns, BorderLayout.SOUTH);
+
+        d.add(p); d.setVisible(true);
     }
 
     private void addDriverShift(Driver driver) {
         JDialog d = createCenteredDialog("Add Shift", 420, 300);
         JPanel p = new JPanel(new GridBagLayout()); p.setBackground(BACKGROUND_COLOR); p.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
         GridBagConstraints gbc = new GridBagConstraints(); gbc.insets = new Insets(8,8,8,8); gbc.fill = GridBagConstraints.HORIZONTAL; gbc.gridx=0; gbc.gridy=0;
-        JTextField dateF = createStyledTextField(); dateF.setText("YYYY-MM-DD");
-        JTextField startF = createStyledTextField(); startF.setText("HH:MM:SS");
-        JTextField endF = createStyledTextField(); endF.setText("HH:MM:SS");
+        JTextField dateF = createStyledTextField(); applyPlaceholder(dateF, "YYYY-MM-DD");
+        JTextField startF = createStyledTextField(); applyPlaceholder(startF, "HH:MM:SS");
+        JTextField endF = createStyledTextField(); applyPlaceholder(endF, "HH:MM:SS");
         p.add(new JLabel("Shift Date (YYYY-MM-DD):"), gbc); gbc.gridy++; p.add(dateF, gbc);
         gbc.gridy++; p.add(new JLabel("Start Time (HH:MM:SS):"), gbc); gbc.gridy++; p.add(startF, gbc);
         gbc.gridy++; p.add(new JLabel("End Time (HH:MM:SS):"), gbc); gbc.gridy++; p.add(endF, gbc);
@@ -1610,6 +1688,6 @@ public class RideSharingGUI extends JFrame {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {}
-        SwingUtilities.invokeLater(() -> new RideSharingGUI());
+        SwingUtilities.invokeLater(() -> new Rydex());
     }
 }

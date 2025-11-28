@@ -1,6 +1,6 @@
 import java.util.*;
 
-public class RideSharingApp {
+public class RydexApp {
 
     private static Scanner scanner = new Scanner(System.in);
     private static UserDAO userDAO = new UserDAO();
@@ -13,9 +13,9 @@ public class RideSharingApp {
     private static RideAssistantDAO assistantDAO = new RideAssistantDAO();
 
     public static void main(String[] args) {
-        System.out.println("╔════════════════════════════════════════════╗");
-        System.out.println("║   CAMPUS RIDE-SHARING MANAGEMENT SYSTEM    ║");
-        System.out.println("╚════════════════════════════════════════════╝");
+        System.out.println("╔════════════╗");
+        System.out.println("║   Rydex    ║");
+        System.out.println("╚════════════╝");
 
         DatabaseConfig.getConnection(); // connect database
 
@@ -36,7 +36,7 @@ public class RideSharingApp {
                 case 2 -> driverLogin();
                 case 3 -> riderLogin();
                 case 4 -> {
-                    System.out.println("Thank you for using Campus Ride-Sharing System!");
+                    System.out.println("Thank you for using Rydex!");
                     DatabaseConfig.closeConnection();
                     running = false;
                 }
