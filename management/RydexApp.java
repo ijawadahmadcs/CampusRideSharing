@@ -88,7 +88,8 @@ public class RydexApp {
         if (driver != null) {
             System.out.println("\n✓ Login successful! Welcome, " + driver.getName());
             Vehicle vehicle = vehicleDAO.getVehicleByDriverId(driver.getUserId());
-            if (vehicle != null) driver.setVehicle(vehicle);
+            if (vehicle != null)
+                driver.setVehicle(vehicle);
             driverMenu(driver);
         } else {
             System.out.println("✗ Invalid credentials!");
@@ -114,7 +115,14 @@ public class RydexApp {
             int choice = getIntInput();
 
             switch (choice) {
-                case 1 -> driver.displayProfile();
+                case 1 -> {
+                    // Reload driver data from database to show updated earnings
+                    Driver updated = userDAO.loginDriver(driver.getEmail(), driver.getPassword());
+                    if (updated != null) {
+                        driver.setTotalEarnings(updated.getTotalEarnings());
+                    }
+                    driver.displayProfile();
+                }
                 case 2 -> addOrUpdateVehicle(driver);
                 case 3 -> viewDriverRides(driver);
                 case 4 -> startRideAction(driver);
@@ -137,8 +145,11 @@ public class RydexApp {
             return;
         }
         boolean ok = rideDAO.startRideTransaction(rideId, driver.getUserId());
-        if (ok) System.out.println("Ride marked In Progress.");
-        else System.out.println("Failed to mark ride as In Progress. Ensure you're the assigned driver and the ride isn't already started/completed.");
+        if (ok)
+            System.out.println("Ride marked In Progress.");
+        else
+            System.out.println(
+                    "Failed to mark ride as In Progress. Ensure you're the assigned driver and the ride isn't already started/completed.");
     }
 
     private static void completeRideAction(Driver driver) {
@@ -157,14 +168,17 @@ public class RydexApp {
         boolean ok = rideDAO.completeRideTransaction(rideId, driver.getUserId(), fare);
         System.out.println(ok ? "Ride completed and earnings updated." : "Failed to complete ride.");
         // If successful, update in-memory driver earnings
-        if (ok) driver.addEarnings(fare);
+        if (ok)
+            driver.addEarnings(fare);
     }
 
     private static void viewDriverShifts(Driver driver) {
         System.out.println("\n--- YOUR SHIFTS ---");
         var shifts = shiftDAO.getShiftsByDriver(driver.getUserId());
-        if (shifts.isEmpty()) System.out.println("No shifts set.");
-        else shifts.forEach(System.out::println);
+        if (shifts.isEmpty())
+            System.out.println("No shifts set.");
+        else
+            shifts.forEach(System.out::println);
     }
 
     private static void addDriverShift(Driver driver) {
@@ -209,7 +223,15 @@ public class RydexApp {
     private static void riderMenu(Rider rider) {
         boolean running = true;
         while (running) {
+            // Reload rider balance from database to show updated wallet amount
+            Rider updated = userDAO.loginRider(rider.getEmail(), rider.getPassword());
+            if (updated != null) {
+                rider.setBalance(updated.getBalance());
+            }
+
             System.out.println("\n========== RIDER MENU ==========");
+            System.out.println("Wallet Balance: PKR " + String.format("%.2f", rider.getBalance()));
+            System.out.println("--------------------------------");
             System.out.println("1. View Profile");
             System.out.println("2. Add Money to Wallet");
             System.out.println("3. Book a Ride");
@@ -261,7 +283,14 @@ public class RydexApp {
         if (amount > 0) {
             rider.addBalance(amount);
             userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
-            System.out.println("✓ Added successfully. New balance: PKR " + rider.getBalance());
+
+            // Reload from database to confirm the update and show real-time balance
+            Rider updated = userDAO.loginRider(rider.getEmail(), rider.getPassword());
+            if (updated != null) {
+                rider.setBalance(updated.getBalance());
+                System.out.println(
+                        "✓ Added successfully. Updated balance: PKR " + String.format("%.2f", rider.getBalance()));
+            }
         } else {
             System.out.println("Invalid amount!");
         }
@@ -277,7 +306,8 @@ public class RydexApp {
             return;
         }
         System.out.println("\nAvailable Drivers:");
-        for (String d : drivers) System.out.println(d);
+        for (String d : drivers)
+            System.out.println(d);
 
         System.out.print("\nEnter Driver ID: ");
         int driverId = getIntInput();
@@ -290,7 +320,8 @@ public class RydexApp {
             routes = routeDAO.getAllRoutes();
         }
         System.out.println("\nAvailable Routes:");
-        for (int i = 0; i < routes.size(); i++) System.out.println((i + 1) + ". " + routes.get(i));
+        for (int i = 0; i < routes.size(); i++)
+            System.out.println((i + 1) + ". " + routes.get(i));
 
         System.out.print("\nSelect Route (1-" + routes.size() + "): ");
         int rIndex = getIntInput() - 1;
@@ -336,12 +367,14 @@ public class RydexApp {
                             if (amt > 0) {
                                 rider.addBalance(amt);
                                 userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
-                                if (rider.getBalance() >= fare) walletOk = true;
+                                if (rider.getBalance() >= fare)
+                                    walletOk = true;
                             } else {
                                 System.out.println("Invalid amount!");
                             }
                         }
-                        if (!walletOk) method = null; // re-prompt
+                        if (!walletOk)
+                            method = null; // re-prompt
                     }
                 }
                 default -> System.out.println("Invalid option!");
@@ -371,7 +404,9 @@ public class RydexApp {
             }
         } else if (method.equals("Card")) {
             // Simulate card processing
-            System.out.println("Processing card ending with: " + (cardNumber != null && cardNumber.length() >= 4 ? cardNumber.substring(cardNumber.length()-4) : "XXXX"));
+            System.out.println("Processing card ending with: "
+                    + (cardNumber != null && cardNumber.length() >= 4 ? cardNumber.substring(cardNumber.length() - 4)
+                            : "XXXX"));
             paymentSuccess = true;
         } else {
             // Cash assumed to be paid on pickup
@@ -380,10 +415,22 @@ public class RydexApp {
 
         String payStatus = paymentSuccess ? "Completed" : "Failed";
         int payId = paymentDAO.createPayment(rideId, fare, method, payStatus);
-        if (payId > 0) System.out.println("Payment recorded (ID: " + payId + ") Status: " + payStatus);
-        else System.out.println("Failed to record payment.");
+        if (payId > 0)
+            System.out.println("Payment recorded (ID: " + payId + ") Status: " + payStatus);
+        else
+            System.out.println("Failed to record payment.");
 
         System.out.println("✓ Ride booked successfully! ID: " + rideId);
+
+        // Reload wallet balance from database to show real-time update if wallet was
+        // used
+        if (method.equals("Wallet")) {
+            Rider updated = userDAO.loginRider(rider.getEmail(), rider.getPassword());
+            if (updated != null) {
+                rider.setBalance(updated.getBalance());
+                System.out.println("Updated wallet balance: PKR " + String.format("%.2f", rider.getBalance()));
+            }
+        }
 
         // Offer to add assistants (companions)
         System.out.print("Add an assistant/companion? (y/n): ");
@@ -404,29 +451,37 @@ public class RydexApp {
     private static void viewRiderRides(Rider rider) {
         List<String> rides = rideDAO.getRidesByRider(rider.getUserId());
         System.out.println("\n--- MY RIDES ---");
-        if (rides.isEmpty()) System.out.println("No rides yet!");
-        else rides.forEach(System.out::println);
+        if (rides.isEmpty())
+            System.out.println("No rides yet!");
+        else
+            rides.forEach(System.out::println);
     }
 
     private static void viewDriverRides(Driver driver) {
         List<String> rides = rideDAO.getRidesByDriver(driver.getUserId());
         System.out.println("\n--- MY RIDES ---");
-        if (rides.isEmpty()) System.out.println("No rides yet!");
-        else rides.forEach(System.out::println);
+        if (rides.isEmpty())
+            System.out.println("No rides yet!");
+        else
+            rides.forEach(System.out::println);
     }
 
     private static void viewAllRoutes() {
         List<Route> routes = routeDAO.getAllRoutes();
         System.out.println("\n--- ALL ROUTES ---");
-        if (routes.isEmpty()) System.out.println("No routes!");
-        else routes.forEach(Route::displayRoute);
+        if (routes.isEmpty())
+            System.out.println("No routes!");
+        else
+            routes.forEach(Route::displayRoute);
     }
 
     private static void viewAllDrivers() {
         List<String> drivers = vehicleDAO.getAllDriversWithVehicles();
         System.out.println("\n--- ALL DRIVERS ---");
-        if (drivers.isEmpty()) System.out.println("No drivers!");
-        else drivers.forEach(System.out::println);
+        if (drivers.isEmpty())
+            System.out.println("No drivers!");
+        else
+            drivers.forEach(System.out::println);
     }
 
     // ===================== PAYMENT DEMO =====================
@@ -464,7 +519,8 @@ public class RydexApp {
                 payment = new WalletPayment(0, rideId, amount, rider);
                 success = payment.processPayment(amount);
                 method = "Wallet";
-                if (success) userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
+                if (success)
+                    userDAO.updateRiderBalance(rider.getUserId(), rider.getBalance());
             }
             default -> {
                 System.out.println("Invalid method!");
@@ -475,8 +531,10 @@ public class RydexApp {
         if (rideId > 0) {
             String status = success ? "Completed" : "Failed";
             int payId = paymentDAO.createPayment(rideId, amount, method, status);
-            if (payId > 0) System.out.println("Payment recorded with ID: " + payId);
-            else System.out.println("Failed to persist payment record.");
+            if (payId > 0)
+                System.out.println("Payment recorded with ID: " + payId);
+            else
+                System.out.println("Failed to persist payment record.");
         }
     }
 
@@ -499,8 +557,10 @@ public class RydexApp {
         String comments = getNonEmptyInput("Comments");
 
         int fbId = feedbackDAO.createFeedback(rideId, rating, comments);
-        if (fbId > 0) System.out.println("Feedback submitted. ID: " + fbId);
-        else System.out.println("Failed to submit feedback (maybe one feedback per ride only).");
+        if (fbId > 0)
+            System.out.println("Feedback submitted. ID: " + fbId);
+        else
+            System.out.println("Failed to submit feedback (maybe one feedback per ride only).");
     }
 
     // ===================== UTILITY METHODS =====================
